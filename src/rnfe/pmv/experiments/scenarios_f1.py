@@ -52,6 +52,44 @@ class WorldSequenceProvider(Protocol):
     # ----------------------------------------------------------------------
     pass
 
+
+@dataclass
+class GenericWorldSequenceProvider:
+    init_fn: Callable[[str, np.random.Generator], np.ndarray]
+    step_fn: Callable[[np.ndarray, np.random.Generator], tuple[np.ndarray, np.ndarray]]
+    grid_shape: tuple[int, int]
+    embedding_dim: int
+
+    def __call__(self, condition: str, n_steps: int, rng: np.random.Generator):
+        # Produce sequences X_seq (T,H,W) and E_seq (T,d) by repeatedly
+        # applying the provided init and step functions.
+        if n_steps <= 0:
+            raise ValueError("n_steps must be > 0")
+        state = self.init_fn(condition, rng)
+        state = np.asarray(state, dtype=float)
+        if state.shape != self.grid_shape:
+            raise ValueError(f"Initial state has shape {state.shape}, expected {self.grid_shape}")
+
+        T = int(n_steps)
+        H, W = self.grid_shape
+        d = int(self.embedding_dim)
+        X_seq = np.zeros((T, H, W), dtype=float)
+        E_seq = np.zeros((T, d), dtype=float)
+
+        for t in range(T):
+            # embedding corresponds to the embedding produced when
+            # stepping from the current `state` to the next one
+            next_state, emb = self.step_fn(state, rng)
+            X_seq[t] = state
+            emb = np.asarray(emb, dtype=float)
+            if emb.shape != (d,):
+                # allow embeddings that are longer/shorter but coerce when possible
+                emb = np.resize(emb, (d,))
+            E_seq[t] = emb
+            state = np.asarray(next_state, dtype=float)
+
+        return X_seq, E_seq
+
 def make_boxworld_provider(
     grid_shape: tuple[int, int],
     embedding_dim: int,
