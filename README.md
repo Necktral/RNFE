@@ -15,24 +15,33 @@ El motor y generador DED–D6 pueden lanzar errores en los siguientes casos:
 - Los errores de safety y estratificación indican problemas en la definición de reglas: revisa que todas las variables estén ancladas y que la negación solo apunte a estratos inferiores.
 - El error de generación suele indicar que los parámetros son demasiado restrictivos (por ejemplo, profundidad mínima muy alta o dominio muy pequeño). Prueba aumentando el dominio, relajando restricciones o incrementando el número de intentos.
 - Los errores de importación se resuelven asegurando que el entorno esté correctamente configurado y las dependencias instaladas.
+
 ### DED–D6: Negación estratificada, safety y explicabilidad exhaustiva
 Motor y generador para tareas de razonamiento simbólico con negación por defecto, estratificación, safety y explicabilidad exhaustiva.
 
-**Objetivos cubiertos:**
-- Negación por defecto (ausencia como evidencia negativa, no-monótona)
-- Estratificación: reglas y predicados organizados en estratos, sin ciclos negativos
-- Safety: todas las variables de la cabeza aparecen en literales positivos del cuerpo
-- Recursión permitida solo positiva; negación solo sobre estratos inferiores
-- Unicidad y determinismo del cierre
-- Explicabilidad exhaustiva: para cada hecho deducible, se muestra la prueba; para cada hecho no deducible, se listan todos los caminos fallidos y las razones (incluyendo pasos [NEG] detallados)
-- El generador de tareas fuerza que cada tarea tenga razonamiento negativo profundo y opciones únicas
+**¿Qué garantiza DED–D6?**
 
-**Garantías DED–D6:**
+- **Negación estratificada:** No hay ciclos negativos; la negación solo se aplica sobre hechos de estratos inferiores.
+- **Safety:** Todas las variables de la cabeza de cada regla aparecen en literales positivos del cuerpo.
+- **Recursión positiva:** Solo se permite recursión positiva; la negación nunca es recursiva.
+- **Unicidad y determinismo:** El cierre (conjunto de hechos deducibles) es único y determinista para cada instancia.
+- **Explicabilidad exhaustiva:** Para cada hecho deducible, se genera una traza de prueba completa; para cada hecho no deducible, se listan todos los caminos fallidos, incluyendo pasos negativos ([NEG]).
+- **Profundidad mínima:** Cada tarea generada fuerza que la respuesta correcta requiera razonamiento profundo y uso explícito de negación.
+- **Opciones únicas:** Solo una opción es deducible; las demás son distractores no deducibles.
+- **Validación temprana:** El generador falla rápido si los parámetros no permiten construir instancias válidas.
+- **Soporte de dominios grandes:** Hasta 64 símbolos distintos.
+
+**Generador constructivo final:**
+El generador recomendado (`ded_d6_final_constructive.py`) garantiza robustez, generación eficiente y explicabilidad, evitando los problemas de generación fallida del generador original. Usa validaciones tempranas y barra de progreso.
+
+**Garantías DED–D6 (constructivo):**
 - Todas las tareas generadas incluyen al menos una deducción con negación y profundidad mínima.
 - La traza de prueba (`proof_trace`) incluye pasos `[NEG]` que explican la ausencia de hechos requeridos.
 - Distractores garantizados: solo una opción es deducible, las demás no.
 - Safety y estratificación validadas en cada tarea.
 - Explicabilidad exhaustiva para positivos y negativos.
+- Validación de parámetros antes de generar (fail early).
+- Soporte de dominios grandes (hasta 64 símbolos).
 
 **Ejemplo de uso:**
 ```python

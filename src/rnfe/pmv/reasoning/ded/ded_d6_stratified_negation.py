@@ -503,10 +503,17 @@ class DED_D5Config:
 
 
 def _make_domain(domain_size: int) -> List[str]:
-    base = ["a", "b", "c", "d", "e", "f", "g", "h"]
-    if domain_size > len(base):
-        raise ValueError("domain_size too large for current symbol set")
-    return base[:domain_size]
+    syms = [
+        "a", "b", "c", "d", "e", "f", "g", "h",
+        "i", "j", "k", "l", "m", "n",
+        "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
+        "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N",
+        "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
+        "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"
+    ]
+    if domain_size > len(syms):
+        raise ValueError(f"domain_size too large for current symbol set (max {len(syms)})")
+    return syms[:domain_size]
 
 
 def _sample_facts(
