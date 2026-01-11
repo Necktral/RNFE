@@ -13,7 +13,7 @@ print(ch.get_proof_tree(Atom("r", ("a",))))  # Trazas de prueba
 
 ## Motores deductivos y benchmarks
 
-El proyecto incluye tres motores deductivos principales y generadores de datasets para benchmarking de razonamiento simbólico:
+El proyecto incluye cuatro motores deductivos principales y generadores de datasets para benchmarking de razonamiento simbólico:
 
 ### DED–D1: Proposicional (Horn clauses)
 Motor forward chaining clásico, determinista y verificable. Genera datasets con splits ID/OOD y queries etiquetadas.
@@ -23,6 +23,38 @@ Extiende DED–D1 con variables, reglas generales y backend ProbLog. Permite tar
 
 ### DED–D2.1: Negación estratificada y safety
 Agrega negación estratificada (\+), chequeos de seguridad y detección de ciclos negativos. Genera splits ID, OOD y "trap" (teorías no estratificables).
+
+### DED–D4: Alcance de costo mínimo en grafos (Horn Clauses + Z3)
+Motor para tareas de alcance de costo mínimo en grafos dirigidos acíclicos (DAGs) con pesos positivos.
+Cada tarea pregunta si existe un camino desde un nodo origen `s` a un nodo destino `t` con costo total menor o igual a un presupuesto `B`.
+El etiquetado es exacto y verificable: True si existe tal camino, False si no.
+Utiliza Dijkstra para el costo mínimo y Z3 Fixedpoint (muZ, Horn Clauses) para validación lógica y consistencia.
+Exporta datasets balanceados IID/OOD y manifiestos con estadísticas.
+Incluye explicaciones (camino mínimo) y diagnóstico formal (sat/unsat/unknown) vía Z3.
+
+#### Uso rápido
+
+```bash
+PYTHONPATH=src python scripts/run_ded_d4.py --n 7200 --out artifacts/ded_d4.jsonl
+```
+
+#### Formato de los datasets DED–D4
+Cada línea en el archivo JSONL contiene:
+- `edges`: lista de aristas (u, v, w) del grafo DAG.
+- `query`: diccionario con `source`, `target`, `budget`.
+- `label`: True/False si existe camino s→t con costo ≤ budget.
+- `proof_edge_indices`: (opcional) camino mínimo como lista de índices de aristas.
+- `shortest_cost`: (opcional) costo mínimo calculado.
+- `z3_status`: "sat", "unsat" o "unknown" según Z3.
+- `z3_answer`: (opcional) respuesta formal de Z3.
+- `difficulty`: "iid" u "ood".
+- `meta`: metadatos de generación.
+
+#### Garantías DED–D4
+- Etiquetado robusto y verificable (Dijkstra + Z3).
+- Diagnóstico formal (sat/unsat/unknown).
+- Explicación por construcción (camino mínimo).
+- Datasets balanceados y manifest exportado.
 
 #### Componentes principales
 - **Motor deductivo**: Deducción de hechos y queries sobre KBs generadas.
@@ -138,6 +170,14 @@ print(metrics)
 Para ejecutar los tests, asegúrate de tener el entorno virtual activo y ejecuta:
 ```bash
 PYTHONPATH=src pytest -q
+```
+
+## Ejemplo de API DED–D4
+```python
+from rnfe.pmv.reasoning.ded.ded_d4_z3_fixedpoint_horn import generate_ded_d4_tasks, build_manifest
+tasks = generate_ded_d4_tasks(num_tasks=100, seed=42)
+manifest = build_manifest(tasks)
+print(manifest)
 ```
 
 
