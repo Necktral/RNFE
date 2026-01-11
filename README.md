@@ -4,21 +4,116 @@
 
 Este proyecto implementa una arquitectura de simulación y experimentación para escenarios de mundos artificiales, aprendizaje y razonamiento, con módulos para agentes, control, métricas, experimentos y más. El código está organizado en submódulos bajo `src/rnfe` y cuenta con scripts, tests y documentación adicional.
 
+facts = [Atom("p", ("a",)), Atom("q", ("a",))]
+rules = [Rule(head=Atom("r", ("a",)), body=(facts[0], facts[1]))]
+ch = ForwardChainer(facts, rules)
+ch.saturate()
+print(ch.entails(Atom("r", ("a",))))  # True
+print(ch.get_proof_tree(Atom("r", ("a",))))  # Trazas de prueba
+
+## Motores deductivos y benchmarks
+
+El proyecto incluye tres motores deductivos principales y generadores de datasets para benchmarking de razonamiento simbólico:
+
+### DED–D1: Proposicional (Horn clauses)
+Motor forward chaining clásico, determinista y verificable. Genera datasets con splits ID/OOD y queries etiquetadas.
+
+### DED–D2: Variables y unificación (ProbLog)
+Extiende DED–D1 con variables, reglas generales y backend ProbLog. Permite tareas más expresivas y queries con variables.
+
+### DED–D2.1: Negación estratificada y safety
+Agrega negación estratificada (\+), chequeos de seguridad y detección de ciclos negativos. Genera splits ID, OOD y "trap" (teorías no estratificables).
+
+#### Componentes principales
+- **Motor deductivo**: Deducción de hechos y queries sobre KBs generadas.
+- **Generador de tareas**: Control de dificultad, tamaño, ruido y splits (ID/OOD/trap).
+- **Evaluador**: Métricas de exactitud, detección de errores y robustez.
+- **Exportador**: Datasets en formato JSONL para entrenamiento y evaluación.
+
+#### Uso rápido
+
+**DED–D1:**
+```bash
+PYTHONPATH=src python scripts/run_deductive_d1.py --n_kb 200 --queries_per_kb 6 --out artifacts/ded_d1.jsonl
+```
+
+**DED–D2:**
+```bash
+PYTHONPATH=src python scripts/run_deductive_d2.py --n_kb 200 --queries_per_kb 6 --out artifacts/ded_d2.jsonl
+```
+
+**DED–D2.1:**
+```bash
+PYTHONPATH=src python scripts/run_deductive_d2_1.py --n_kb 200 --queries_per_kb 6 --trap_n 500 --out artifacts/ded_d2_1.jsonl
+```
+
+**Ejecutar tests:**
+```bash
+PYTHONPATH=src pytest -q
+```
+
+#### Formato de los datasets
+Cada línea en los archivos JSONL (por ejemplo, artifacts/ded_d2_1.jsonl) es un ejemplo con:
+- `program`: KB en formato Prolog/ProbLog.
+- `query`: Query ground (ej. path(c0,c7)).
+- `label`: Etiqueta booleana (True/False) si la query es válida.
+- `difficulty`: "easy", "mid", "hard" o "trap".
+- `split`: "id", "ood" o "trap".
+- `meta`: Metadatos (profundidad, n_consts, n_edges, n_noise, etc).
+
+Ejemplo:
+```json
+{
+   "program": "edge(c0,c1).\nedge(c1,c2).\npath(X,Y) :- edge(X,Y).\npath(X,Z) :- edge(X,Y), path(Y,Z).\n",
+   "query": "path(c0,c2)",
+   "label": true,
+   "difficulty": "easy",
+   "split": "id",
+   "meta": {"depth": 2, "n_consts": 5, "n_edges": 2, "n_rules": 2, "n_noise": 0}
+}
+```
+
+#### Splits
+- **id**: In-distribution (estructura y dificultad estándar).
+- **ood**: Out-of-distribution (más profundidad, ruido, nodos, queries difíciles).
+- **trap**: Teorías no estratificables o con errores de seguridad (solo en DED–D2.1).
+
+#### Ejemplo de API
+```python
+from rnfe.pmv.reasoning.deductive_d2_1_stratneg import generate_ded_d2_1_tasks, evaluate_d2_1
+tasks = generate_ded_d2_1_tasks(seed=42, n_kb=10, queries_per_kb=4, split="id", difficulty="easy")
+metrics = evaluate_d2_1(tasks)
+print(metrics)
+```
+
+#### Criterios de aceptación
+- Determinismo y terminación garantizada.
+- Etiquetado consistente y robusto.
+- Control de dificultad, ruido y splits.
+- Tests unitarios completos y verificados.
+
+#### Referencias
+- RuleTaker, ProofWriter, IA simbólica clásica.
+- ProbLog, razonamiento con negación estratificada.
+
+
+
 ## Estructura del proyecto
 
 - `src/rnfe/` — Código fuente principal, organizado en:
-  - `agents/` — Agentes y estrategias.
-  - `core/` — Núcleo: control, geometría, métricas, etc.
-  - `fmse/` — Modelos de evolución, semántica y mundo.
-  - `infra/` — Infraestructura: logging, almacenamiento, utilidades.
-  - `pmv/` — Módulos de experimentos y fases.
-  - `reasoning/` — Modos y pipelines de razonamiento.
+   - `agents/` — Agentes y estrategias.
+   - `core/` — Núcleo: control, geometría, métricas, etc.
+   - `fmse/` — Modelos de evolución, semántica y mundo.
+   - `infra/` — Infraestructura: logging, almacenamiento, utilidades.
+   - `pmv/` — Módulos de experimentos, fases y razonamiento.
+   - `pmv/reasoning/` — Motores deductivos y generadores de datasets.
 - `scripts/` — Scripts de entrenamiento, pruebas y utilidades.
 - `tests/` — Pruebas unitarias y de integración.
 - `configs/` — Configuraciones y presets de experimentos.
 - `data/` — Datos y logs generados.
 - `docs/` — Documentación, diagramas y especificaciones.
 - `experiments/` — Resultados y configuraciones de experimentos.
+
 
 ## Instalación
 
@@ -28,7 +123,7 @@ Este proyecto implementa una arquitectura de simulación y experimentación para
    python3 -m venv .venv
    source .venv/bin/activate
    ```
-   O usa tu entorno gestionado por pyenv, por ejemplo:
+   O usa tu entorno gestionado por pyenv:
    ```bash
    pyenv activate rnfe-lab
    ```
@@ -37,16 +132,20 @@ Este proyecto implementa una arquitectura de simulación y experimentación para
    pip install -r requirements.txt
    ```
 
+
 ## Ejecución de tests
 
 Para ejecutar los tests, asegúrate de tener el entorno virtual activo y ejecuta:
 ```bash
-PYTHONPATH=src pytest --maxfail=5 --disable-warnings -q
+PYTHONPATH=src pytest -q
 ```
+
 
 ## Notas
 - Si tienes problemas de importación, revisa que `PYTHONPATH` incluya la carpeta `src`.
+- Los datasets generados se guardan en `artifacts/` y pueden analizarse con cualquier herramienta que lea JSONL.
 - El archivo `requirements.txt` se puede regenerar con `pip freeze > requirements.txt` tras instalar nuevos paquetes.
 
+
 ## Contacto
-Para dudas o contribuciones, contacta al responsable del repositorio.
+Para dudas, sugerencias o contribuciones, contacta al responsable del repositorio.

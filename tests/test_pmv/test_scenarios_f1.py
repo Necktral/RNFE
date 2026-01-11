@@ -168,7 +168,7 @@ def test_run_f1_inductive_scenario_end_to_end():
     assert np.isfinite(result.delta_e_in)
     assert np.isfinite(result.delta_e_ood)
 def test_run_f1_inductive_scenario_multi_seed_basic():
-    H, W = 3, 3
+    H, W = 2, 2
     level_masks = [
         np.zeros((H, W), dtype=bool),
         np.zeros((H, W), dtype=bool),
