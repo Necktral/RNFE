@@ -1,3 +1,157 @@
+#### Manejo y descripción de errores en DED–D6
+
+El motor y generador DED–D6 pueden lanzar errores en los siguientes casos:
+
+- **ValueError: Regla no segura**
+   - Ocurre si alguna regla tiene variables en la cabeza que no aparecen en literales positivos del cuerpo (viola safety).
+- **ValueError: Negación no estratificable**
+   - Ocurre si hay ciclos negativos o la negación apunta a un predicado del mismo o mayor estrato (viola estratificación).
+- **RuntimeError: No se pudo generar una tarea válida**
+   - Ocurre si tras muchos intentos no se logra construir una tarea que cumpla todos los invariantes (negación, profundidad, unicidad, etc).
+- **Errores de importación o dependencias**
+   - Si faltan módulos requeridos o hay problemas de entorno.
+
+**Interpretación y solución:**
+- Los errores de safety y estratificación indican problemas en la definición de reglas: revisa que todas las variables estén ancladas y que la negación solo apunte a estratos inferiores.
+- El error de generación suele indicar que los parámetros son demasiado restrictivos (por ejemplo, profundidad mínima muy alta o dominio muy pequeño). Prueba aumentando el dominio, relajando restricciones o incrementando el número de intentos.
+- Los errores de importación se resuelven asegurando que el entorno esté correctamente configurado y las dependencias instaladas.
+### DED–D6: Negación estratificada, safety y explicabilidad exhaustiva
+Motor y generador para tareas de razonamiento simbólico con negación por defecto, estratificación, safety y explicabilidad exhaustiva.
+
+**Objetivos cubiertos:**
+- Negación por defecto (ausencia como evidencia negativa, no-monótona)
+- Estratificación: reglas y predicados organizados en estratos, sin ciclos negativos
+- Safety: todas las variables de la cabeza aparecen en literales positivos del cuerpo
+- Recursión permitida solo positiva; negación solo sobre estratos inferiores
+- Unicidad y determinismo del cierre
+- Explicabilidad exhaustiva: para cada hecho deducible, se muestra la prueba; para cada hecho no deducible, se listan todos los caminos fallidos y las razones (incluyendo pasos [NEG] detallados)
+- El generador de tareas fuerza que cada tarea tenga razonamiento negativo profundo y opciones únicas
+
+**Garantías DED–D6:**
+- Todas las tareas generadas incluyen al menos una deducción con negación y profundidad mínima.
+- La traza de prueba (`proof_trace`) incluye pasos `[NEG]` que explican la ausencia de hechos requeridos.
+- Distractores garantizados: solo una opción es deducible, las demás no.
+- Safety y estratificación validadas en cada tarea.
+- Explicabilidad exhaustiva para positivos y negativos.
+
+**Ejemplo de uso:**
+```python
+from rnfe.pmv.reasoning.ded.ded_d6_stratified_negation import generate_ded_d6_tasks, DED_D6Config
+cfg = DED_D6Config(n_tasks=10, seed=42, min_proof_depth=6)
+tasks = list(generate_ded_d6_tasks(cfg))
+for t in tasks:
+   print(t["prompt"])
+   print("Prueba:")
+   for line in t["proof_trace"]:
+      print(line)
+```
+
+**Formato de los datasets DED–D6:**
+Cada línea contiene:
+- `prompt`: descripción de la KB y la pregunta.
+- `choices`: opciones en lenguaje natural.
+- `choices_symbolic`: opciones simbólicas.
+- `answer_index`: índice de la opción correcta.
+- `answer_symbolic`: opción correcta simbólica.
+- `meta`: metadatos (semilla, profundidad, n_facts, n_rules).
+- `proof_trace`: explicación exhaustiva de la deducción (incluye pasos [NEG]).
+
+**Notas:**
+- El generador puede requerir muchos intentos para cumplir todos los invariantes (negación, profundidad, unicidad).
+- La explicación negativa es exhaustiva: para cada hecho no deducible, se listan todos los caminos fallidos y las razones.
+## Cobertura de tests y garantías
+
+El proyecto cuenta con una batería exhaustiva de 71 tests automáticos que validan todos los motores deductivos, módulos de simulación, infraestructura y utilidades. A continuación se detallan los aspectos cubiertos:
+
+### Motores deductivos
+
+- **DED–D1 (Proposicional, Horn clauses):**
+   - Saturación y forward chaining determinista.
+   - Queries positivas y negativas, trazas de prueba.
+   - Manejo de ciclos y casos límite.
+   - Garantía de terminación y explicabilidad.
+
+- **DED–D2 (Variables y ProbLog):**
+   - Razonamiento con variables y reglas generales.
+   - Backend ProbLog: queries de caminos, etiquetas True/False.
+   - Consistencia entre programa y etiquetas.
+
+- **DED–D2.1 (Negación estratificada y safety):**
+   - Validación de seguridad, ciclos negativos y estratificación.
+   - Ejecución de programas con negación, splits ID/OOD/trap.
+   - Detección de errores y robustez ante teorías no estratificables.
+
+- **DED–D3 (IDL/Z3):**
+   - Entailment en Integer Difference Logic con Z3.
+   - Validación de cadenas de restricciones, core de Z3.
+   - Generación y validación de datasets, consistencia entre generador y Z3.
+
+- **DED–D4 (CostReach/Horn/Z3):**
+   - Alcance de costo mínimo en grafos (DAG) con Z3 Fixedpoint.
+   - Validación de caminos, costos, consistencia entre generador y Z3.
+   - Datasets balanceados, manifest y diagnóstico formal.
+
+- **DED–D5 (Deducción con profundidad mínima):**
+   - Generación de tareas con prueba mínima garantizada.
+   - Determinismo, unicidad de respuesta, escritura y lectura de datasets.
+   - Validación de invariantes y robustez ante distractores.
+
+### Simulación y mundo artificial
+
+- **MiniWorld Boxes:**
+   - Validación de formas, determinismo, avance temporal y observaciones.
+   - Pruebas de errores, casos extremos y consistencia de estados.
+
+- **MFM (Memory Fractal Model):**
+   - Validación de configuración, escritura/lectura, TTL y ring buffer.
+   - Lectura multiresolución, estadísticas de uso, manejo de errores.
+
+### Infraestructura y telemetría
+
+- **TelemetryBus:**
+   - Registro y recuperación de métricas escalares y vectoriales.
+   - Consistencia de esquema, congelación/descongelación, errores de tipo y dimensión.
+   - Exportación a diccionario NumPy, manejo de errores y casos límite.
+
+### Fases y experimentos PMV
+
+- **Phase0 Calibration:**
+   - Ejecución completa, registro de métricas, determinismo y consistencia.
+   - Validación de dimensiones y series de telemetría.
+
+- **Phase1 Inductive:**
+   - Entrenamiento y predicción de modelos lineales.
+   - Métricas de error, comparación con baseline, estimación de MDL y costo.
+   - Experimentos end-to-end, manejo de errores y casos límite.
+
+- **Phase1 Unimodal:**
+   - Normalización de métricas, clipping, cascada de métricas globales.
+   - Validación de rangos, casos patológicos y robustez de S_F1.
+
+### Escenarios y proveedores
+
+- **F1 Scenarios:**
+   - Generación de secuencias fractales y no fractales.
+   - Construcción de datasets, métricas agregadas, diferencias entre modos.
+   - Validación de formas, evolución temporal y consistencia de resultados.
+
+- **GenericWorldSequenceProvider:**
+   - Proveedor de secuencias de mundo artificial, evolución monótona y embeddings.
+
+### Utilidades y wrappers
+
+- **progress_utils.py:**
+   - Wrapper robusto y reutilizable para barras de progreso con tqdm.
+   - Pruebas de integración en generadores de datasets y scripts.
+
+---
+
+**Garantías globales:**
+- Determinismo y reproducibilidad en todos los motores y simulaciones.
+- Robustez ante errores, inputs inválidos y casos límite.
+- Consistencia de formatos, metadatos y exportación de datasets.
+- Cobertura de splits ID/OOD/trap y validación formal con Z3/ProbLog.
+- Explicabilidad y trazabilidad en todos los motores deductivos.
 # Proyecto RNFE
 
 ## Descripción
